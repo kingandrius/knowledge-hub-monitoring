@@ -1,0 +1,23 @@
+[Unit]
+Description=Knowledge Hub collector API (HTTPS 8443, SQLite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=khcollector
+Group=khcollector
+WorkingDirectory=/opt/kh-collector
+EnvironmentFile=/etc/kh-collector/collector.env
+ExecStart=/opt/kh-collector/.venv/bin/gunicorn --bind 0.0.0.0:8443 --workers 2 \
+    --certfile /etc/kh-collector/collector.crt --keyfile /etc/kh-collector/collector.key \
+    --access-logfile - app:app
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/kh-collector
+
+[Install]
+WantedBy=multi-user.target

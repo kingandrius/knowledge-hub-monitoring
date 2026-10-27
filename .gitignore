@@ -1,2 +1,10 @@
 ### Local SQLite database
 monitoring.db
+### Secrets and local runtime files
+.env
+*.db
+instance/
+logs/
+__pycache__/
+*.pyc
+.venv/

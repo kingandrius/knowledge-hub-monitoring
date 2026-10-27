@@ -1,0 +1,4 @@
+# Monitoring script (Python 3.12+). The API has its own api/requirements.txt.
+psutil==7.0.0
+requests==2.32.5
+python-dotenv==1.1.1
