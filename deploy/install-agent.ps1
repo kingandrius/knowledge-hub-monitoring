@@ -1,7 +1,8 @@
 # Install the monitoring agent on a Windows host (DirectoryServer, FileServer,
 # StaffPC1, StaffPC2). Needs Python 3.12+ installed "for all users".
 #
-#   powershell -ExecutionPolicy Bypass -File deploy\install-agent.ps1 -Key kh-xxxx-...
+#   powershell -ExecutionPolicy Bypass -File deploy\install-agent.ps1 -HostName staffpc1 -Key kh-xxxx-...
+#   (-HostName is optional; without it the Windows computer name is used)
 #
 # Result:
 #   C:\kh-agent          monitoring.py + venv + .env + buffer database
@@ -10,6 +11,7 @@
 #                        every 15 min, both as SYSTEM
 param(
     [Parameter(Mandatory = $true)][string]$Key,
+    [string]$HostName = "",
     [string]$Collector = "10.10.10.30"
 )
 $ErrorActionPreference = "Stop"
@@ -61,6 +63,7 @@ $pem = "-----BEGIN CERTIFICATE-----`n" +
 
 Write-Host "== 4/5 settings and scheduled tasks"
 $envText = "KH_API_URL=https://${Collector}:8443/api/v1`nKH_API_KEY=$Key`nKH_CA_BUNDLE=$Dir\collector.crt`n"
+if ($HostName) { $envText += "KH_HOSTNAME=$($HostName.ToLower())`n" }
 [IO.File]::WriteAllText("$Dir\.env", $envText)
 
 $py = "$Dir\.venv\Scripts\python.exe"
