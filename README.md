@@ -7,10 +7,9 @@ to a central API in Azure.
 |---|---|
 | `monitoring.py` | Monitoring CLI: `measure`, `report [--cloud]`, `send [--dry-run]` |
 | `monitoring_config.py` | CS1 Task 5 configuration script |
-| `tests/` | unittest suite for the monitoring script |
-| `api/` | Flask API (App Service, and the on-prem collector), see `api/README.md` |
-| `api/tools/relay.py` | Relay: collector → Azure API every 4 h |
-| `deploy/` | Install scripts: collector (Monitoring-1), Linux agent, Windows agent |
+| `intune/` | Intune compliance policy as code (Microsoft Graph), see below |
+| `tests/` | unittest suite for the monitoring and Intune scripts |
+| `api/` | Flask API (App Service), see `api/README.md` |
 | `TASK11.md` | CS1 Task 11 documentation |
 
 ## Monitoring script (Monitoring-1, 10.10.10.30)
@@ -38,39 +37,45 @@ Schedule (crontab on Monitoring-1): measure every 5 minutes, send every
 7 */4 * * *  cd /opt/kh-monitoring && .venv/bin/python monitoring.py send >> send.log 2>&1
 ```
 
-## Collector design (CS2, 27 Oct)
+## Intune compliance policy as code (`intune/`)
 
-Every host runs the same `monitoring.py` as an **agent**. Agents send to the
-**collector** on MonitorServer instead of to Azure; only the collector talks
-to Azure, through the **relay**.
+`intune/intune_policy.py` keeps the Windows compliance policy
+`cp-kh-windows-baseline` in Git (`intune/policies/cp-kh-windows-baseline.json`)
+and applies it to Intune through Microsoft Graph.
 
+| Mode | What it does |
+|---|---|
+| `export` | Reads the live policy and saves it as JSON (IDs, dates and empty fields removed) |
+| `apply [--dry-run]` | Creates or updates the policy from the JSON, then assigns it to **one group only** (no "All devices", no exclusions) |
+| `show` | Prints the policy's current assignments and flags exclusions |
+
+**Setup (once):**
+
+1. Entra admin center → App registrations → `app-kh-intune-automation` (single tenant).
+2. API permissions → Microsoft Graph → **Application** permission
+   `DeviceManagementConfiguration.ReadWrite.All` → Grant admin consent.
+   Nothing else (least privilege).
+3. Certificates & secrets → new client secret → store the value in the password manager.
+4. Copy `intune/.env.example` to `intune/.env` and fill in tenant ID, client ID,
+   secret and the Object ID of `grp-kh-staff-devices`. `.env` is in `.gitignore`.
+
+**Use:**
+
+```bash
+python intune/intune_policy.py export          # live policy -> JSON, then review + commit
+python intune/intune_policy.py apply --dry-run # says what would change
+python intune/intune_policy.py apply           # make Intune match Git
+python intune/intune_policy.py show
 ```
-agents (every host)  --HTTPS 8443, own key-->  collector (MonitorServer, SQLite)
-                                                   | relay, every 4 h, Azure key
-                                                   v
-                                     Azure API (private endpoint) -> Azure SQL
-```
 
-| Host | OS | Install |
-|---|---|---|
-| MonitorServer 10.10.10.30 | Ubuntu | `sudo bash deploy/install-collector.sh`, then `install-agent.sh` |
-| Webserver 10.10.40.10 | Ubuntu | `sudo bash deploy/install-agent.sh <key>` |
-| DirectoryServer, FileServer, StaffPC1, StaffPC2 | Windows | `powershell -ExecutionPolicy Bypass -File deploy\install-agent.ps1 -Key <key>` |
+Notes:
 
-- **Why:** one database wake-up per 4 h whatever the number of hosts (free
-  vCore allowance); only MonitorServer holds the Azure key and needs the VPN
-  path; data keeps collecting on-prem while the tunnel is down.
-- **TLS:** self-signed certificate (SAN IP 10.10.10.30). Agents fetch it once
-  and the installer stops unless the SHA-256 fingerprint matches the one shown
-  on MonitorServer (trust on first use, checked by hand). Agents verify it on
-  every request (`KH_CA_BUNDLE`); verification is never switched off.
-- **Keys:** one key per agent (revocable per host); the collector stores only
-  SHA-256 hashes. The Azure key lives only in `/etc/kh-collector/relay.env`.
-  Known limitation: a key is not bound to a host name.
-- **Least privilege:** the collector runs as `khcollector` with a read-only
-  file system except `/var/lib/kh-collector`; agents run as `khagent`
-  (Linux) or SYSTEM with a folder ACL (Windows).
-- **Check:** `sudo -u khcollector /opt/kh-collector/run-relay.sh --status`
-  shows rows per host and how many still wait for Azure.
-
-Schedules: agent measure `*/5`, send `*/15` (local, free); relay `7 */4`.
+- Uses Graph **beta**: in v1.0 the Defender and firewall settings of a Windows
+  compliance policy are not exposed, so an export from v1.0 silently dropped
+  5 of the 6 settings. Always review the exported JSON before committing.
+- Why the assignment is scripted: on 5 Nov the group was added under
+  "Excluded" in the portal by mistake. An exclusion wins, so the PC got no
+  compliance policy. `apply` always writes the same reviewed assignment.
+- Errors: 429 / 5xx are retried (respecting Retry-After); 401 / 403 stop with
+  a clear message. Exit codes as for `monitoring.py`: 0 OK, 1 temporary,
+  2 configuration / sign-in / permission, 3 rejected by Graph.

@@ -57,7 +57,7 @@ def local(minutes_ago=0, days_ago=0):
 
 class MonitoringSendTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.db = os.path.join(self.tmp.name, "monitoring.db")
         patcher = mock.patch.object(monitoring, "DATABASE_FILE", self.db)
         patcher.start()
