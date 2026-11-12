@@ -1,5 +1,8 @@
 """Unit tests for the monitoring frontend (fake API client, no network)."""
 import unittest
+from functools import wraps
+
+from flask import Blueprint, redirect
 
 from khfront import create_app
 from khfront.api_client import ApiError, latest_per_host
@@ -34,10 +37,33 @@ class FakeClient:
                  "average": 59.5, "minimum": 20.0, "maximum": 99.0}]
 
 
+class FakeAuth:
+    """Stands in for identity.flask.Auth (same decorator and init_app)."""
+
+    def __init__(self, signed_in=True):
+        self.signed_in = signed_in
+
+    def init_app(self, app):
+        bp = Blueprint("identity", __name__)
+        bp.add_url_rule("/auth/logout", "logout", lambda: "signed out")
+        app.register_blueprint(bp)
+
+    def login_required(self, function=None, /, *, scopes=None):
+        def decorate(view):
+            @wraps(view)
+            def wrapper(*args, **kwargs):
+                if not self.signed_in:
+                    return redirect("/login")
+                return view(*args, context={"user": {"name": "KH Staff"}}, **kwargs)
+            return wrapper
+        return decorate(function) if function else decorate
+
+
 class FrontendTests(unittest.TestCase):
-    def client(self, fake=None):
+    def client(self, fake=None, signed_in=True):
         self.fake = fake or FakeClient()
-        return create_app(client=self.fake).test_client()
+        app = create_app(client=self.fake, auth=FakeAuth(signed_in))
+        return app.test_client()
 
     def test_latest_keeps_newest_value(self):
         hosts = latest_per_host(ROWS)
@@ -71,8 +97,27 @@ class FrontendTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("cannot be reached", response.get_data(as_text=True))
 
-    def test_health(self):
-        self.assertEqual(self.client().get("/health").status_code, 200)
+    def test_health_needs_no_sign_in(self):
+        self.assertEqual(self.client(signed_in=False).get("/health").status_code, 200)
+
+    def test_pages_need_sign_in(self):
+        client = self.client(signed_in=False)
+        for path in ("/", "/history", "/containers"):
+            self.assertEqual(client.get(path).status_code, 302, path)
+        self.assertEqual(self.fake.calls, [])  # API never called
+
+    def test_signed_in_user_and_sign_out_link_shown(self):
+        page = self.client().get("/").get_data(as_text=True)
+        self.assertIn("KH Staff", page)
+        self.assertIn("/auth/logout", page)
+
+    def test_missing_entra_settings_refuse_start(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"KH_TENANT_ID": ""}, clear=False):
+            with mock.patch("khfront.load_dotenv"):
+                with self.assertRaises(RuntimeError):
+                    create_app(client=FakeClient())
 
 
 if __name__ == "__main__":

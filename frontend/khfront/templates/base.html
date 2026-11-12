@@ -14,6 +14,10 @@
         <li><a href="{{ url_for('overview') }}">Status</a></li>
         <li><a href="{{ url_for('history') }}">History</a></li>
         <li><a href="{{ url_for('containers') }}">Containers</a></li>
+        {% if user %}
+        <li><small>{{ user }}</small></li>
+        <li><a href="{{ url_for('identity.logout') }}">Sign out</a></li>
+        {% endif %}
       </ul>
     </nav>
   </header>
