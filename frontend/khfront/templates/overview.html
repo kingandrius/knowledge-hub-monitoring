@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+{% block content %}
+<h1>Current status</h1>
+<p>Latest measurement per host (last 24 hours).</p>
+{% if hosts %}
+<table>
+  <thead><tr><th>Host</th><th>CPU %</th><th>Memory %</th><th>Disk %</th><th>Last measured</th></tr></thead>
+  <tbody>
+  {% for name, h in hosts.items() %}
+    <tr>
+      <td>{{ name }}</td>
+      <td>{{ h.get("cpu", "–") }}</td>
+      <td>{{ h.get("memory", "–") }}</td>
+      <td>{{ h.get("disk", "–") }}</td>
+      <td>{{ h.time }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No measurements in the last 24 hours.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block content %}
+<h1>History</h1>
+<form method="get">
+  <fieldset class="grid">
+    <input name="hostname" placeholder="Host (all)" value="{{ hostname }}">
+    <input name="metric" placeholder="Metric (all)" value="{{ metric }}">
+    <select name="period">
+      {% for value, label in periods.items() %}
+      <option value="{{ value }}" {% if value == period %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Show</button>
+  </fieldset>
+</form>
+
+<h2>Averages</h2>
+{% if summary %}
+<table>
+  <thead><tr><th>Host</th><th>Metric</th><th>Count</th><th>Average</th><th>Min</th><th>Max</th></tr></thead>
+  <tbody>
+  {% for s in summary %}
+    <tr><td>{{ s.hostname }}</td><td>{{ s.metric }}</td><td>{{ s.count }}</td>
+        <td>{{ s.average }}</td><td>{{ s.minimum }}</td><td>{{ s.maximum }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No measurements for these filters.</p>
+{% endif %}
+
+<h2>Measurements (newest 200)</h2>
+{% if rows %}
+<table>
+  <thead><tr><th>Time</th><th>Host</th><th>Metric</th><th>Value</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td>{{ r.timestamp }}</td><td>{{ r.hostname }}</td><td>{{ r.metric }}</td>
+        <td>{{ r.value }} {{ r.unit or "" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

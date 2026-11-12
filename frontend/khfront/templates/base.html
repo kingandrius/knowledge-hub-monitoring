@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Monitoring{% endblock %} – Knowledge Hub</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul><li><strong>Knowledge Hub Monitoring</strong></li></ul>
+      <ul>
+        <li><a href="{{ url_for('overview') }}">Status</a></li>
+        <li><a href="{{ url_for('history') }}">History</a></li>
+        <li><a href="{{ url_for('containers') }}">Containers</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container"><small>Times are UTC.</small></footer>
+</body>
+</html>

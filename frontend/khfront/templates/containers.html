@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Containers{% endblock %}
+{% block content %}
+<h1>Containers</h1>
+<p>Latest values sent by the docker-agent (last hour).</p>
+{% if containers %}
+<table>
+  <thead><tr><th>Container</th><th>State</th><th>CPU %</th><th>Memory %</th><th>Last measured</th></tr></thead>
+  <tbody>
+  {% for name, c in containers.items() %}
+    <tr>
+      <td>{{ name }}</td>
+      <td>{% if c.get("container_up") == 1 %}✅ running{% else %}❌ stopped{% endif %}</td>
+      <td>{{ c.get("container_cpu", "–") }}</td>
+      <td>{{ c.get("container_memory", "–") }}</td>
+      <td>{{ c.time }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No container data in the last hour. Is the docker-agent running?</p>
+{% endif %}
+{% endblock %}
