@@ -1,0 +1,9 @@
+.env
+instance/
+logs/
+tests/
+tools/
+sql/
+__pycache__/
+*.pyc
+*.db

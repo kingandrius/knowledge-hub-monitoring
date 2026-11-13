@@ -1,0 +1,4 @@
+.env
+test_agent.py
+__pycache__/
+*.pyc

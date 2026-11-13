@@ -1,0 +1,5 @@
+.env
+flask_session/
+tests/
+__pycache__/
+*.pyc

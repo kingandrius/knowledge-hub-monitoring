@@ -1,0 +1,60 @@
+# Knowledge Hub monitoring on one Docker host (on-prem Monitoring-1).
+# Start: docker compose up -d --build
+# Needs: api/.env, frontend/.env, docker-agent/.env and ./.env with DOCKER_GID.
+name: kh-monitoring
+
+services:
+  api:
+    build: ./api
+    env_file: api/.env
+    environment:                      # override the laptop values in .env
+      KH_STORAGE_BACKEND: sqlite
+      KH_SQLITE_PATH: /data/khapi.db
+      KH_LOG_FILE: ""                 # log to stdout only (docker logs)
+      KH_PROXY_HOPS: "0"
+    volumes:
+      - kh-data:/data                 # SQLite database survives rebuilds
+    ports:
+      - "127.0.0.1:5000:5000"         # only this host (host agent); no TLS
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks: [kh-net]
+
+  frontend:
+    build: ./frontend
+    env_file: frontend/.env
+    environment:
+      KH_API_URL: http://api:5000/api/v1   # overrides the value in .env
+    ports:
+      - "127.0.0.1:8000:8000"         # reach it through an SSH tunnel
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [kh-net]
+
+  docker-agent:
+    build: ./docker-agent
+    env_file: docker-agent/.env
+    environment:
+      KH_API_URL: http://api:5000/api/v1
+    volumes:
+      # :ro only makes the socket file read-only, not the Docker API (see design risks).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID in .env (getent group docker)}"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [kh-net]
+
+volumes:
+  kh-data:
+
+networks:
+  kh-net:
