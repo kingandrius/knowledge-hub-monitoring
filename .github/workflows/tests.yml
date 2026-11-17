@@ -19,9 +19,10 @@ jobs:
           - part: monitoring      # host agent monitoring.py + intune script
             dir: .
             tests: tests
-          - part: api
+          - part: api             # tests/test_relay.py needs requests (collector file)
             dir: api
             tests: tests
+            extra: -r requirements-collector.txt
           - part: frontend
             dir: frontend
             tests: tests
@@ -32,11 +33,11 @@ jobs:
       run:
         working-directory: ${{ matrix.dir }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"  # same as the Docker images
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt ${{ matrix.extra }} pytest
       - name: Run tests
         run: python -m pytest -q ${{ matrix.tests }}
