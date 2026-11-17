@@ -1,0 +1,42 @@
+# Run all unit tests on every push and pull request (first part of CI/CD).
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.part }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false            # show results of every part, not only the first failure
+      matrix:
+        include:
+          - part: monitoring      # host agent monitoring.py + intune script
+            dir: .
+            tests: tests
+          - part: api
+            dir: api
+            tests: tests
+          - part: frontend
+            dir: frontend
+            tests: tests
+          - part: docker-agent
+            dir: docker-agent
+            tests: test_agent.py
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # same as the Docker images
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest -q ${{ matrix.tests }}
